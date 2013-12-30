@@ -2,18 +2,19 @@
 //  RapBattleBot - Checks its tweet mentions every 10 minutes and if it is tweeted at it uses Wordnik API to find a rhyming word and send 2 bars of a rap battle back
 //
 var fs = require('fs');
-var APIkey = '52ddd09626ad0663873040e91e204b652c14317fe839fd96c';
+var APIkey = 'YOUR_WORDNIK_API_KEY_HERE';
 var Twit = require('twit');
 var Wordnik = require('wordnik-bb').init(APIkey);
 var restclient = require('restler');
 var _ = require('lodash');
 //var app = require('express').createServer();
 
+//Fill in your twitter information here
 var T = new Twit({
-    consumer_key: 'PUpY8E4E1cXGr6OaJVomA'
-  , consumer_secret: '87pRMVpLy3XLPi1FXFxU7clJc7zjxAMwJcsvm1gqNs'
-  , access_token: '2243925318-L5Las6fdgsGYVNA2hitSwBYmiYzi1K8IkmF6byF'
-  , access_token_secret: 'tPufcmVeDDAmDGHj6Os2TmohvrRHv3adV78NvgIfJQRhC'
+    consumer_key: '***'
+  , consumer_secret: '***'
+  , access_token: '***'
+  , access_token_secret: '***'
 })
 
 // I deployed to Nodejitsu, which requires an application to respond to HTTP requests
