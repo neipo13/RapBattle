@@ -1,15 +1,21 @@
-//
-//  RapBattleBot - Checks its tweet mentions every 10 minutes and if it is tweeted at it uses Wordnik API to find a rhyming word and send 2 bars of a rap battle back
-//
+/*
+RapBattleBot
+Reads mentions in real time and responds with a rap lyric rhyming with the last word of that mention.
+Uses Twit module to read mentions in real time.
+Uses express to keep app running on Nodejitsu.
+Uses Wordnik api to gather rhyming words.
+*/
+
 var fs = require('fs');
-var APIkey = 'YOUR_WORDNIK_API_KEY_HERE';
+var APIkey = '***';//insert your Wordnik key here
 var Twit = require('twit');
 var Wordnik = require('wordnik-bb').init(APIkey);
 var restclient = require('restler');
 var _ = require('lodash');
-//var app = require('express').createServer();
+var express = require('express');
+var app = express();
 
-//Fill in your twitter information here
+//insert your twitter api keys here
 var T = new Twit({
     consumer_key: '***'
   , consumer_secret: '***'
@@ -19,14 +25,16 @@ var T = new Twit({
 
 // I deployed to Nodejitsu, which requires an application to respond to HTTP requests
 // If you're running locally you don't need this, or express at all.
-/*
 app.get('/', function (req, res) {
     res.send('Hello world.');
 });
 app.listen(3000);
-*/
+
+//Log that the program is running
+console.log('RapBattleBot: Running.');
 
 //fill the blacklist with words that aren't allowed
+console.log('Filling blacklist');
 var blacklist = [];
 try {
     var data = fs.readFileSync('Text/badwords.txt', 'ascii');
@@ -41,22 +49,19 @@ catch (err) {
     console.log(err);
 }
 
+//fill arrays of strings with the appropriate part of speech rap lyric on startup
+console.log('Filling rap lyrics');
 var nouns = fs.readFileSync('Text/noun.txt').toString().split("\n");
 var adjectives = fs.readFileSync('Text/adjective.txt').toString().split("\n");
 var adverbs = fs.readFileSync('Text/adverb.txt').toString().split("\n");
 var verbTransitives = fs.readFileSync('Text/verb-transitive.txt').toString().split("\n");
 var properNouns = fs.readFileSync('Text/proper-noun.txt').toString().split("\n");
 
-//Log that the program is running
-console.log('RapBattleBot: Running.');
-
-
-//
-//  attempt at using the bot on the twitter stream
-//
+//open twitter stream using twit
 var stream = T.stream('statuses/filter', { track: ['@RapBattleBot'] } );
 console.log('Stream Open');
 
+//if you recieve a mention, first retweet then respond
 stream.on('tweet', function (tweet) {
     if (tweet.user.screen_name != 'RapBattleBot') {
         T.post('statuses/retweet/' + tweet.id_str, {}, function (error, response) {
@@ -72,69 +77,94 @@ stream.on('tweet', function (tweet) {
     }
 });
 
+//response to a mention
+//mention is a json object with text being a string of the entire tweet
 function rap(mention) {
-    //var last = last word of tweet @ me
-    //var tweet = @whatever
-    var tweet = "";
+    var tweet = "";//the response
     tweet += ".@" + mention.user.screen_name + " ";
     var text = mention.text;
     var words = text.split(" ");
+    //grab the last word
     var position = (words.length - 1);
     var last = words[position];
+    //ignore the last word and go one previous if the last word is a mention or hastag as people often throw these in after their actual lyric
     while((last.indexOf('#') != -1 || last.indexOf('@') != -1 ) && position > 0) {
         position -= 1;
         last = words[position];
     }
+    //ignore any special characters, if there are any, move to one word previous
     if (/^[a-zA-Z0-9- ]*$/.test(last) == false) {
         last = last.substring(0, last.length - 1);
     }
+    //log the word to rhyme
     console.log("Last word of tweet:", last);
+    //seach wordnik for a word matching the variable 'last'. If there is no word it will still return an object with the id matching the word you input
     var word = new Wordnik.Word(
     {
         word: last,
         params:
         {
             relationshipTypes: 'rhyme',
-            limitPerRelationshipType: 100,
+            limitPerRelationshipType: 5,
             hasDictionaryDef: true,
             useCanonical: true
         }
     });
-
     console.log("Word matched by wordnik:", word.id);
 
-    //uses restclient to grab a set of rhyming words
+    //uses restclient and Wordnik to grab a set of rhyming words
     var rhymeURL = 'http://api.wordnik.com:80/v4/word.json/' + word.id + '/relatedWords?useCanonical=false&relationshipTypes=rhyme&limitPerRelationshipType=30&api_key=' + APIkey;
     var rhyme;
-    restclient.json(rhymeURL).on('complete', function (data) {
-        //console.log('RETRIEVED FROM WORDNIK:', data);
-        if (data == 'undefined' || data.length < 1) {
+    //when the json object is returned
+    restclient.json(rhymeURL).on('complete', function (data) 
+    {
+        //If there is no rhyming words, give canned response
+        if (data == 'undefined' || data.length < 1) 
+        {
             tweet += word.id;
             tweet += "? I thought you wanted to rhyme.\nComeback with something better or quit wasting my time.";
             console.log("Tweet:", tweet);
             //tweet the finished product and log it as well
-            T.post('statuses/update', { status: tweet, in_reply_to_status_id: mention.id_str }, function (err, reply) {
+            T.post('statuses/update', { status: tweet, in_reply_to_status_id: mention.id_str }, function (err, reply) 
+            {
                 console.log("error with updating status: " + err);
             });
         }
-        else {
+        //otherwise grab a random word from the list of rhyming matches
+        else 
+        {
             rhyme = data[0].words[RandomRange(0, data[0].words.length - 1)];
             console.log("Rhyming word:", rhyme);
-            var posURL = 'http://api.wordnik.com:80/v4/word.json/' + word.id + '/definitions?limit=200&includeRelated=true&sourceDictionaries=all&useCanonical=false&includeTags=false&api_key=' + APIkey;
-            restclient.json(posURL).on('complete', function (data2) {
-                if (data2 == 'undefined' || data2.length < 2) {
-                    var pos = 'noun';
-                }
-                else {
-                    var rand = RandomRange(0, data2.length - 1);
-                    if (data2[rand].hasOwnProperty('partOfSpeech')) {
-                        var pos = data2[rand].partOfSpeech;
-                    }
-                    else {
+            //check the part of speech of the rhyming word
+            var posURL = 'http://api.wordnik.com:80/v4/word.json/' + rhyme + '/definitions?limit=200&includeRelated=true&sourceDictionaries=all&useCanonical=false&includeTags=false&api_key=' + APIkey;
+            restclient.json(posURL).on('complete', function (data2) 
+            {
+                try {
+                    //if it does not 'have' a part of speech, assume it is a noun
+                    if (data2 == 'undefined' || data2.length < 2) 
+                    {
                         var pos = 'noun';
                     }
+                    else 
+                    {
+                        do
+                        {
+                        var rand = RandomRange(0, data2.length - 1);
+                        }while(blacklist.indexOf(data2[rand].id) < 0)
+                        if (data2[rand].hasOwnProperty('partOfSpeech')) {
+                            var pos = data2[rand].partOfSpeech;
+                        }
+                        else {
+                            var pos = 'noun';
+                        }
+                    }
+                }
+                catch(err)
+                {
+                    var pos = 'noun';
                 }
                 console.log("Part of Speech:", pos);
+                //grab a rap lyric based on the part of speech and insert the rhyming word
                 tweet += getLine(rhyme, pos);
                 console.log("Tweet:", tweet);
                 //tweet the finished product and log it as well
@@ -160,12 +190,13 @@ function RandomRange(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+//uses the arrays of part of speech based lyrics from the text files to return a string from the passed in rhyming word and those arrays of strings
 function getLine(word, pos) {
 
     var result = "Oops, we didn't account for something.";
     var rand;
     if (pos == 'verb' || pos == 'verb-transitive') {
-        rand = RandomRange(0, (verbsTransitives.length - 1));
+        rand = RandomRange(0, (verbTransitives.length - 1));
         result = verbs[rand];
     }
     else if (pos == 'adjective' || pos == 'determiner' || pos == 'pronoun') {
@@ -194,6 +225,7 @@ function getLine(word, pos) {
 
 }
 
+//check if a word is on the blacklist
 function isBlacklisted(data) {
     var result = false;
     for (var i = 0; i < blacklist.length; i++) {
