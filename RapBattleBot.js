@@ -10,10 +10,8 @@ var config = require('./config');
 var phrases = require('./phrases');
 var Twit = require('twit');
 var APIkey = config.wordnik_api_key;//insert your Wordnik key here
-var Wordnik = require('wordnik-bb').init(APIkey);
 var restclient = require('restler');
 var _ = require('lodash');
-var app = express();
 
 
 //insert your twitter api keys here
@@ -29,14 +27,7 @@ console.log(config.twitter_handle + ': Running.');
 
 //fill the blacklist with words that aren't allowed
 console.log('Filling blacklist');
-var blacklist = [];
-try {
-    blacklist = phrases.badwords;
-}
-catch (err) {
-    console.error("There was an error opening the file:");
-    console.log(err);
-}
+var blacklist = phrases.badwords;
 
 //fill arrays of strings with the appropriate part of speech rap lyric on startup
 console.log('Filling rap lyrics');
@@ -88,21 +79,11 @@ function rap(mention) {
     //log the word to rhyme
     console.log("Last word of tweet:", last);
     //seach wordnik for a word matching the variable 'last'. If there is no word it will still return an object with the id matching the word you input
-    var word = new Wordnik.Word(
-    {
-        word: last,
-        params:
-        {
-            relationshipTypes: 'rhyme',
-            limitPerRelationshipType: 5,
-            hasDictionaryDef: true,
-            useCanonical: true
-        }
-    });
-    console.log("Word matched by wordnik:", word.id);
+    var word = last;
+    console.log("Word matched by wordnik:", word);
 
     //uses restclient and Wordnik to grab a set of rhyming words
-    var rhymeURL = 'http://api.wordnik.com:80/v4/word.json/' + word.id + '/relatedWords?useCanonical=false&relationshipTypes=rhyme&limitPerRelationshipType=30&api_key=' + APIkey;
+    var rhymeURL = 'http://api.wordnik.com:80/v4/word.json/' + word + '/relatedWords?useCanonical=false&relationshipTypes=rhyme&limitPerRelationshipType=30&api_key=' + APIkey;
     var rhyme;
     //when the json object is returned
     restclient.json(rhymeURL).on('complete', function (data)
@@ -110,7 +91,7 @@ function rap(mention) {
         //If there is no rhyming words, give canned response
         if (data == 'undefined' || data.length < 1)
         {
-            tweet += word.id;
+            tweet += word;
             tweet += "? I thought you wanted to rhyme.\nComeback with something better or quit wasting my time.";
             console.log("Tweet:", tweet);
             //tweet the finished product and log it as well
