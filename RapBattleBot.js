@@ -6,32 +6,26 @@ Uses express to keep app running on Nodejitsu.
 Uses Wordnik api to gather rhyming words.
 */
 
+var config = require('./config');
 var fs = require('fs');
-var APIkey = '***';//insert your Wordnik key here
 var Twit = require('twit');
+var APIkey = config.wordnik_api_key;//insert your Wordnik key here
 var Wordnik = require('wordnik-bb').init(APIkey);
 var restclient = require('restler');
 var _ = require('lodash');
-var express = require('express');
 var app = express();
+
 
 //insert your twitter api keys here
 var T = new Twit({
-    consumer_key: '***'
-  , consumer_secret: '***'
-  , access_token: '***'
-  , access_token_secret: '***'
+    consumer_key: config.twitter_consumer_key
+  , consumer_secret: config.twitter_consumer_secret
+  , access_token: config.twitter_access_token
+  , access_token_secret: config.twitter_access_secret
 })
 
-// I deployed to Nodejitsu, which requires an application to respond to HTTP requests
-// If you're running locally you don't need this, or express at all.
-app.get('/', function (req, res) {
-    res.send('Hello world.');
-});
-app.listen(3000);
-
 //Log that the program is running
-console.log('RapBattleBot: Running.');
+console.log(config.twitter_handle + ': Running.');
 
 //fill the blacklist with words that aren't allowed
 console.log('Filling blacklist');
@@ -58,12 +52,12 @@ var verbTransitives = fs.readFileSync('Text/verb-transitive.txt').toString().spl
 var properNouns = fs.readFileSync('Text/proper-noun.txt').toString().split("\n");
 
 //open twitter stream using twit
-var stream = T.stream('statuses/filter', { track: ['@RapBattleBot'] } );
+var stream = T.stream('statuses/filter', { track: ['@' + config.twitter_handle] } );
 console.log('Stream Open');
 
 //if you recieve a mention, first retweet then respond
 stream.on('tweet', function (tweet) {
-    if (tweet.user.screen_name != 'RapBattleBot') {
+    if (tweet.user.screen_name != config.twitter_handle) {
         T.post('statuses/retweet/' + tweet.id_str, {}, function (error, response) {
             if (response) {
                 console.log('Success! Check your bot, it should have retweeted something.')
@@ -116,36 +110,36 @@ function rap(mention) {
     var rhymeURL = 'http://api.wordnik.com:80/v4/word.json/' + word.id + '/relatedWords?useCanonical=false&relationshipTypes=rhyme&limitPerRelationshipType=30&api_key=' + APIkey;
     var rhyme;
     //when the json object is returned
-    restclient.json(rhymeURL).on('complete', function (data) 
+    restclient.json(rhymeURL).on('complete', function (data)
     {
         //If there is no rhyming words, give canned response
-        if (data == 'undefined' || data.length < 1) 
+        if (data == 'undefined' || data.length < 1)
         {
             tweet += word.id;
             tweet += "? I thought you wanted to rhyme.\nComeback with something better or quit wasting my time.";
             console.log("Tweet:", tweet);
             //tweet the finished product and log it as well
-            T.post('statuses/update', { status: tweet, in_reply_to_status_id: mention.id_str }, function (err, reply) 
+            T.post('statuses/update', { status: tweet, in_reply_to_status_id: mention.id_str }, function (err, reply)
             {
                 console.log("error with updating status: " + err);
             });
         }
         //otherwise grab a random word from the list of rhyming matches
-        else 
+        else
         {
             rhyme = data[0].words[RandomRange(0, data[0].words.length - 1)];
             console.log("Rhyming word:", rhyme);
             //check the part of speech of the rhyming word
             var posURL = 'http://api.wordnik.com:80/v4/word.json/' + rhyme + '/definitions?limit=200&includeRelated=true&sourceDictionaries=all&useCanonical=false&includeTags=false&api_key=' + APIkey;
-            restclient.json(posURL).on('complete', function (data2) 
+            restclient.json(posURL).on('complete', function (data2)
             {
                 try {
                     //if it does not 'have' a part of speech, assume it is a noun
-                    if (data2 == 'undefined' || data2.length < 2) 
+                    if (data2 == 'undefined' || data2.length < 2)
                     {
                         var pos = 'noun';
                     }
-                    else 
+                    else
                     {
                         do
                         {
