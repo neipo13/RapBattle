@@ -7,7 +7,7 @@ Uses Wordnik api to gather rhyming words.
 */
 
 var config = require('./config');
-var fs = require('fs');
+var phrases = require('./phrases');
 var Twit = require('twit');
 var APIkey = config.wordnik_api_key;//insert your Wordnik key here
 var Wordnik = require('wordnik-bb').init(APIkey);
@@ -31,12 +31,7 @@ console.log(config.twitter_handle + ': Running.');
 console.log('Filling blacklist');
 var blacklist = [];
 try {
-    var data = fs.readFileSync('Text/badwords.txt', 'ascii');
-    data.split('\n').forEach(function (line) {
-        if (line.length > 0) {
-            blacklist.push(line);
-        }
-    });
+    blacklist = phrases.badwords;
 }
 catch (err) {
     console.error("There was an error opening the file:");
@@ -45,11 +40,11 @@ catch (err) {
 
 //fill arrays of strings with the appropriate part of speech rap lyric on startup
 console.log('Filling rap lyrics');
-var nouns = fs.readFileSync('Text/noun.txt').toString().split("\n");
-var adjectives = fs.readFileSync('Text/adjective.txt').toString().split("\n");
-var adverbs = fs.readFileSync('Text/adverb.txt').toString().split("\n");
-var verbTransitives = fs.readFileSync('Text/verb-transitive.txt').toString().split("\n");
-var properNouns = fs.readFileSync('Text/proper-noun.txt').toString().split("\n");
+var nouns = phrases.nouns;
+var adjectives = phrases.adjectives;
+var adverbs = phrases.adverbs;
+var verbTransitives = phrases.verbs;
+var properNouns = phrases.properNouns;
 
 //open twitter stream using twit
 var stream = T.stream('statuses/filter', { track: ['@' + config.twitter_handle] } );
