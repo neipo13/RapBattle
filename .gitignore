@@ -175,6 +175,7 @@ ehthumbs.db
 
 # Folder config file
 Desktop.ini
+config.json
 
 # Recycle Bin used on file shares
 $RECYCLE.BIN/
