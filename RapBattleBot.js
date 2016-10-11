@@ -80,7 +80,6 @@ function rap(mention) {
     console.log("Last word of tweet:", last);
     //seach wordnik for a word matching the variable 'last'. If there is no word it will still return an object with the id matching the word you input
     var word = last;
-    console.log("Word matched by wordnik:", word);
 
     //uses restclient and Wordnik to grab a set of rhyming words
     var rhymeURL = 'http://api.wordnik.com:80/v4/word.json/' + word + '/relatedWords?useCanonical=false&relationshipTypes=rhyme&limitPerRelationshipType=30&api_key=' + APIkey;
@@ -91,6 +90,7 @@ function rap(mention) {
         //If there is no rhyming words, give canned response
         if (data == 'undefined' || data.length < 1)
         {
+            console.log("NO RHYME");
             tweet += word;
             tweet += "? I thought you wanted to rhyme.\nComeback with something better or quit wasting my time.";
             console.log("Tweet:", tweet);
@@ -103,24 +103,26 @@ function rap(mention) {
         //otherwise grab a random word from the list of rhyming matches
         else
         {
+            console.log("YES RHYME");
             rhyme = data[0].words[RandomRange(0, data[0].words.length - 1)];
             console.log("Rhyming word:", rhyme);
+            isBlacklisted = blacklist.indexOf(rhyme) != -1;
+            console.log("Blacklisted Status:" + isBlacklisted);
             //check the part of speech of the rhyming word
             var posURL = 'http://api.wordnik.com:80/v4/word.json/' + rhyme + '/definitions?limit=200&includeRelated=true&sourceDictionaries=all&useCanonical=false&includeTags=false&api_key=' + APIkey;
             restclient.json(posURL).on('complete', function (data2)
             {
+                console.log("Getting Part of Speech");
+                console.log(data2);
                 try {
                     //if it does not 'have' a part of speech, assume it is a noun
-                    if (data2 == 'undefined' || data2.length < 2)
+                    if (data2 == 'undefined' || data2.length == 0)
                     {
                         var pos = 'noun';
                     }
                     else
                     {
-                        do
-                        {
                         var rand = RandomRange(0, data2.length - 1);
-                        }while(blacklist.indexOf(data2[rand].id) < 0)
                         if (data2[rand].hasOwnProperty('partOfSpeech')) {
                             var pos = data2[rand].partOfSpeech;
                         }
@@ -145,7 +147,6 @@ function rap(mention) {
         }
     });
 
-    console.log('Tweet:', tweet);
 }
 
 
@@ -186,9 +187,6 @@ function getLine(word, pos) {
         result = nouns[rand];
     }
 
-
-    //remove the "\n" from the end of the string so it does not add a line break in the middle of the black card
-    result = result.substring(0, result.length - 1);
     result += " " + word;
 
     return result;
