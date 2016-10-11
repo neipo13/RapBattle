@@ -1,0 +1,10 @@
+{
+  "name": "myapp",
+  "version": "0.0.3",
+  "dependencies": {
+    "lodash": "^4.16.4",
+    "requirejs": "^2.3.2",
+    "restler": "^3.4.0",
+    "twit": "^2.2.5"
+  }
+}
