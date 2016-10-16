@@ -2,7 +2,6 @@
 RapBattleBot
 Reads mentions in real time and responds with a rap lyric rhyming with the last word of that mention.
 Uses Twit module to read mentions in real time.
-Uses express to keep app running on Nodejitsu.
 Uses Wordnik api to gather rhyming words.
 */
 
@@ -44,18 +43,20 @@ console.log('Stream Open');
 //if you recieve a mention, first retweet then respond
 stream.on('tweet', function (tweet) {
     if (tweet.user.screen_name != config.twitter_handle) {
-        T.post('statuses/retweet/' + tweet.id_str, {}, function (error, response) {
-            if (response) {
-                console.log('Success! Check your bot, it should have retweeted something.')
-            }
-            else if (error) {
-                console.log('Error retweeting :(');
-            }
-        });
+        T.post('statuses/retweet/' + tweet.id_str, {}, retweetCallback);
         //reply with your line
         rap(tweet);
     }
 });
+
+function retweetCallback(error, response){
+  if (response) {
+      console.log('Success! Check your bot, it should have retweeted something.')
+  }
+  else if (error) {
+      console.log('Error retweeting :(');
+  }
+}
 
 //response to a mention
 //mention is a json object with text being a string of the entire tweet
@@ -84,68 +85,79 @@ function rap(mention) {
     //uses restclient and Wordnik to grab a set of rhyming words
     var rhymeURL = 'http://api.wordnik.com:80/v4/word.json/' + word + '/relatedWords?useCanonical=false&relationshipTypes=rhyme&limitPerRelationshipType=30&api_key=' + APIkey;
     var rhyme;
+
+    function gotRhyme(data){
+      //If there is no rhyming words, give canned response
+      if (data == 'undefined' || data.length < 1)
+      {
+          console.log("NO RHYME");
+          tweet += word;
+          tweet += "? I thought you wanted to rhyme.\nComeback with something better or quit wasting my time.";
+          console.log("Tweet:", tweet);
+          //tweet the finished product and log it as well
+          T.post('statuses/update', { status: tweet, in_reply_to_status_id: mention.id_str }, function (err, reply)
+          {
+              console.log("error with updating status: " + err);
+          });
+      }
+      //otherwise grab a random word from the list of rhyming matches
+      else
+      {
+          console.log("YES RHYME");
+          rhyme = data[0].words[RandomRange(0, data[0].words.length - 1)];
+          console.log("Rhyming word:", rhyme);
+          isBlacklisted = blacklist.indexOf(rhyme) != -1;
+          console.log("Blacklisted Status:" + isBlacklisted);
+          //check the part of speech of the rhyming word
+          var posURL = 'http://api.wordnik.com:80/v4/word.json/' + rhyme + '/definitions?limit=200&includeRelated=true&sourceDictionaries=all&useCanonical=false&includeTags=false&api_key=' + APIkey;
+          restclient
+            .json(posURL)
+            .on('complete', gotPartOfSpeech);
+      }
+    }
+
+    function gotPartOfSpeech(data){
+      console.log("Getting Part of Speech");
+      console.log(data2);
+      try {
+          //if it does not 'have' a part of speech, assume it is a noun
+          if (data2 == 'undefined' || data2.length == 0)
+          {
+              var pos = 'noun';
+          }
+          else
+          {
+              var rand = RandomRange(0, data2.length - 1);
+              if (data2[rand].hasOwnProperty('partOfSpeech')) {
+                  var pos = data2[rand].partOfSpeech;
+              }
+              else {
+                  var pos = 'noun';
+              }
+          }
+      }
+      catch(err)
+      {
+          var pos = 'noun';
+      }
+      console.log("Part of Speech:", pos);
+      //grab a rap lyric based on the part of speech and insert the rhyming word
+      tweet += getLine(rhyme, pos);
+      console.log("Tweet:", tweet);
+      //tweet the finished product and log it as well
+      T.post('statuses/update', { status: tweet, in_reply_to_status_id: mention.id_str }, tweetPostStatus);
+    }
+
+    function tweetPostStatus(err, reply){
+      if(err){
+        console.log("error with updating status: " + err);
+      }
+    }
+
+
     //when the json object is returned
-    restclient.json(rhymeURL).on('complete', function (data)
-    {
-        //If there is no rhyming words, give canned response
-        if (data == 'undefined' || data.length < 1)
-        {
-            console.log("NO RHYME");
-            tweet += word;
-            tweet += "? I thought you wanted to rhyme.\nComeback with something better or quit wasting my time.";
-            console.log("Tweet:", tweet);
-            //tweet the finished product and log it as well
-            T.post('statuses/update', { status: tweet, in_reply_to_status_id: mention.id_str }, function (err, reply)
-            {
-                console.log("error with updating status: " + err);
-            });
-        }
-        //otherwise grab a random word from the list of rhyming matches
-        else
-        {
-            console.log("YES RHYME");
-            rhyme = data[0].words[RandomRange(0, data[0].words.length - 1)];
-            console.log("Rhyming word:", rhyme);
-            isBlacklisted = blacklist.indexOf(rhyme) != -1;
-            console.log("Blacklisted Status:" + isBlacklisted);
-            //check the part of speech of the rhyming word
-            var posURL = 'http://api.wordnik.com:80/v4/word.json/' + rhyme + '/definitions?limit=200&includeRelated=true&sourceDictionaries=all&useCanonical=false&includeTags=false&api_key=' + APIkey;
-            restclient.json(posURL).on('complete', function (data2)
-            {
-                console.log("Getting Part of Speech");
-                console.log(data2);
-                try {
-                    //if it does not 'have' a part of speech, assume it is a noun
-                    if (data2 == 'undefined' || data2.length == 0)
-                    {
-                        var pos = 'noun';
-                    }
-                    else
-                    {
-                        var rand = RandomRange(0, data2.length - 1);
-                        if (data2[rand].hasOwnProperty('partOfSpeech')) {
-                            var pos = data2[rand].partOfSpeech;
-                        }
-                        else {
-                            var pos = 'noun';
-                        }
-                    }
-                }
-                catch(err)
-                {
-                    var pos = 'noun';
-                }
-                console.log("Part of Speech:", pos);
-                //grab a rap lyric based on the part of speech and insert the rhyming word
-                tweet += getLine(rhyme, pos);
-                console.log("Tweet:", tweet);
-                //tweet the finished product and log it as well
-                T.post('statuses/update', { status: tweet, in_reply_to_status_id: mention.id_str }, function (err, reply) {
-                    console.log("error with updating status: " + err);
-                });
-            });
-        }
-    });
+    restclient.json(rhymeURL)
+      .on('complete', gotRhyme);
 
 }
 
