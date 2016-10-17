@@ -68,14 +68,34 @@ function rap(mention) {
     //grab the last word
     var position = (words.length - 1);
     var last = words[position];
-    //ignore the last word and go one previous if the last word is a mention or hastag as people often throw these in after their actual lyric
-    while((last.indexOf('#') != -1 || last.indexOf('@') != -1 ) && position > 0) {
+    last.trim();
+    var invalid = true;
+    while (invalid && position > 0){
+      console.log('current iteration:',last);
+      invalid = false;
+      //ignore the last word and go one previous if the last word is a mention or hastag as people often throw these in after their actual lyric
+      while (last.indexOf('#') != -1 || last.indexOf('@') != -1 ) {
+          console.log('failed hastag',last);
+          position -= 1;
+          last = words[position];
+          last.trim();
+          invalid = true;
+          //if there are any special characters try stripping them from back to front and move back a word if they are all that's left
+
+      }
+      while(/^[a-zA-Z0-9- ]*$/.test(last) == false){
+        console.log('failed characters:', last);
+          console.log('substringing:',last);
+          last = last.substring(0, last.length - 1);
+          invalid = true;
+      }
+      if(last.length == 0 || last == ' '){
+        console.log('empty word now');
         position -= 1;
         last = words[position];
-    }
-    //ignore any special characters, if there are any, move to one word previous
-    if (/^[a-zA-Z0-9- ]*$/.test(last) == false) {
-        last = last.substring(0, last.length - 1);
+        last.trim();
+        invalid = true;
+      }
     }
     //log the word to rhyme
     console.log("Last word of tweet:", last);
@@ -116,9 +136,8 @@ function rap(mention) {
       }
     }
 
-    function gotPartOfSpeech(data){
+    function gotPartOfSpeech(data2){
       console.log("Getting Part of Speech");
-      console.log(data2);
       try {
           //if it does not 'have' a part of speech, assume it is a noun
           if (data2 == 'undefined' || data2.length == 0)
@@ -179,7 +198,7 @@ function getLine(word, pos) {
     var result = "Oops, we didn't account for something.";
     var rand;
     if (pos == 'verb' || pos == 'verb-transitive') {
-        rand = RandomRange(0, (verbTransitives.length - 1));
+        rand = RandomRange(0, (verbs.length - 1));
         result = verbs[rand];
     }
     else if (pos == 'adjective' || pos == 'determiner' || pos == 'pronoun') {
